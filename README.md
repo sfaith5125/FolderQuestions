@@ -1,12 +1,29 @@
-# FolderQuestions - Interactive Document Q&A with LLMs
+# FolderQuestions - Interactive Document Q&A with Local LLMs
 
-An interactive Python app that lets you drop documents into a folder and ask questions about them using either Google Gemini (cloud) or local Ollama models with RAG (Retrieval-Augmented Generation).
+An interactive Python app that lets you drop documents into a folder and ask questions about them using **local Ollama models** with RAG (Retrieval-Augmented Generation). Complete data privacy - all processing stays on your computer.
 
 ## 🌳 Branch Structure
 
-This project has **two separate branches** for different deployment approaches:
+This project has **two branches** for different deployment approaches:
 
-### 1. **feature/google-gemini-api** - Cloud-Based (Fast, Easy Setup)
+### 📍 **main** - Local Ollama (Private, Recommended Default)
+- Uses **Local Ollama** with models like Mistral, Llama2, Neural-Chat
+- ✅ **100% data privacy** (stays on your computer)
+- ✅ No API costs
+- ✅ Works offline
+- ✅ No compliance concerns
+- ⚠️ Slower responses (15-60 seconds)
+- 📦 Requires Ollama installation + 6GB+ RAM
+
+**Use this if:**
+- Your documents are sensitive/proprietary
+- You need complete data privacy
+- You want zero cloud processing
+- Cost is a concern
+- You have compliance requirements (HIPAA, GDPR, etc.)
+- **This is the recommended default branch**
+
+### 🌐 **feature/google-gemini-api** - Cloud-Based Alternative
 - Uses **Google Gemini 2.5 Flash** API
 - ✅ Fast responses (2-5 seconds)
 - ✅ Excellent answer quality
@@ -19,21 +36,6 @@ This project has **two separate branches** for different deployment approaches:
 - You want fast, high-quality answers
 - You don't mind cloud processing
 - Easy setup is priority
-
-### 2. **feature/ollama-local-llm** - Local LLM (Private, No Costs)
-- Uses **Local Ollama** with models like Mistral, Llama2, Neural-Chat
-- ✅ 100% data privacy (stays on your computer)
-- ✅ No API costs
-- ✅ Works offline
-- ❌ Slower responses (15-60 seconds)
-- 📦 Requires Ollama installation + 6GB+ RAM
-
-**Use this if:**
-- Your documents are sensitive/proprietary
-- You need complete data privacy
-- You want zero cloud processing
-- Cost is a concern
-- You have compliance requirements (HIPAA, GDPR, etc.)
 
 ## Features (Both Versions)
 
@@ -55,7 +57,36 @@ This project has **two separate branches** for different deployment approaches:
 
 ## Installation Instructions
 
-### For Google Gemini (feature/google-gemini-api)
+### For Local Ollama (main branch - RECOMMENDED)
+
+1. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+2. Install Ollama:
+   - Download from https://ollama.ai
+   - Run installer and complete setup
+
+3. Pull a model:
+```bash
+ollama pull mistral
+# Or try: neural-chat, llama2, dolphin-mixtral
+```
+
+4. Start Ollama (in one terminal):
+```bash
+ollama serve
+```
+
+5. Run DocumentQA (in another terminal):
+```bash
+python DocumentQA_GUI.py
+```
+
+**See `OLLAMA_SETUP.md` for detailed Ollama setup and troubleshooting**
+
+### For Google Gemini (feature/google-gemini-api branch)
 
 1. Checkout the branch:
 ```bash
@@ -90,53 +121,11 @@ python DocumentQA_GUI.py
 
 **See `GEMINI_SETUP.md` for detailed Google Gemini setup**
 
-### For Local Ollama (feature/ollama-local-llm)
-
-1. Checkout the branch:
-```bash
-git checkout feature/ollama-local-llm
-```
-
-2. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-3. Install Ollama:
-   - Download from https://ollama.ai
-   - Run installer and complete setup
-
-4. Pull a model:
-```bash
-ollama pull mistral
-# Or try: neural-chat, llama2, dolphin-mixtral
-```
-
-5. Start Ollama (in one terminal):
-```bash
-ollama serve
-```
-
-6. Run DocumentQA (in another terminal):
-```bash
-python DocumentQA_GUI.py
-```
-
-**See `OLLAMA_SETUP.md` for detailed Ollama setup and troubleshooting**
-
 ## Quick Start
 
-### Google Gemini Version
+### Default (Ollama Local - Recommended)
 ```bash
-git checkout feature/google-gemini-api
-pip install -r requirements.txt
-# Set GOOGLE_API_KEY environment variable
-python DocumentQA_GUI.py
-```
-
-### Ollama Version
-```bash
-git checkout feature/ollama-local-llm
+# Already on main branch with Ollama
 pip install -r requirements.txt
 ollama pull mistral
 # (in new terminal) ollama serve
@@ -144,26 +133,35 @@ ollama pull mistral
 python DocumentQA_GUI.py
 ```
 
+### Alternative: Google Gemini
+```bash
+git checkout feature/google-gemini-api
+pip install -r requirements.txt
+# Set GOOGLE_API_KEY environment variable
+python DocumentQA_GUI.py
+```
+
 ## Documentation
 
-- **`GEMINI_SETUP.md`** - Complete setup guide for Google Gemini API
-- **`OLLAMA_SETUP.md`** - Complete setup guide for local Ollama models
+- **`OLLAMA_SETUP.md`** - Complete setup guide for local Ollama models (main branch)
+- **`GEMINI_SETUP.md`** - Complete setup guide for Google Gemini API (feature/google-gemini-api)
 - **`ANSWER_QUALITY_TUNING.md`** - How to improve answer quality and performance
 - **`DATA_PRIVACY_GUIDE.md`** - Data privacy analysis and considerations
+- **`BRANCH_STRUCTURE.md`** - How to manage and switch between branches
 
-## API Endpoints
+## API & Technology
 
-### Google Gemini (feature/google-gemini-api)
-- Requires: `google-generativeai` package
-- Uses: Google's hosted API
-- Cost: Free tier (15 req/min) or paid plan
-- Data: Sent to Google servers
-
-### Ollama (feature/ollama-local-llm)
-- Requires: `requests` package + local Ollama installation
-- Uses: `http://localhost:11434/api/generate`
+### Main Branch (Ollama Local)
+- Uses: Local Ollama HTTP API at `localhost:11434`
+- Models: Mistral, Llama2, Neural-Chat, Dolphin-Mixtral, etc.
 - Cost: None (local processing)
 - Data: Stays on your computer
+
+### feature/google-gemini-api Branch
+- Uses: Google's cloud API
+- Models: Google Gemini 2.5 Flash
+- Cost: Free tier (15 req/min) or paid plan
+- Data: Sent to Google servers
 
 ## Comparison Table
 

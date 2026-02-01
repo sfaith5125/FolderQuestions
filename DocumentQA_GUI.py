@@ -129,7 +129,8 @@ class DocumentQAGUI:
         self.question_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
         self.question_entry.bind("<Return>", lambda e: self._ask_question_async())
         
-        ttk.Button(button_frame, text="Ask", command=self._ask_question_async).pack(side=tk.LEFT, padx=2)
+        self.ask_button = ttk.Button(button_frame, text="Ask", command=self._ask_question_async)
+        self.ask_button.pack(side=tk.LEFT, padx=2)
         ttk.Button(button_frame, text="Clear", command=self._clear_output).pack(side=tk.LEFT, padx=2)
         
         # Lower frame: Answer display
@@ -329,7 +330,7 @@ class DocumentQAGUI:
             return
         
         if not self.client:
-            messagebox.showerror("API Error", "Anthropic client not initialized. Check your API key.")
+            messagebox.showerror("API Error", "Ollama client not initialized. Check Ollama is running.")
             return
         
         question = self.question_entry.get().strip()
@@ -337,25 +338,29 @@ class DocumentQAGUI:
             messagebox.showwarning("No Question", "Please enter a question.")
             return
         
-        self.info_var.set("Searching and thinking...")
+        # Show visual feedback - disable button and update status
+        self.ask_button.config(state='disabled')
+        self.question_entry.config(state='disabled')
+        self.info_var.set("⏳ Processing... Searching documents and generating answer...")
         self.root.update()
         
-        # Retrieve relevant chunks using RAG (increased from 5 to 10 for more context)
-        relevant_chunks = self._retrieve_relevant_chunks(question, top_k=10)
-        
-        if not relevant_chunks:
-            self.output_text.insert(tk.END, f"Q: {question}\n\n")
-            self.output_text.insert(tk.END, "A: No relevant information found in documents.\n\n")
-            self.info_var.set("Ready")
-            return
-        
-        # Build context from retrieved chunks
-        context = "\n\n---\n\n".join([
-            f"[From: {doc}]\n{chunk}" for chunk, doc in relevant_chunks
-        ])
-        
-        # Build system prompt with retrieved context
-        system_prompt = f"""You are an expert analyst providing detailed, well-researched answers based ONLY on the provided documents.
+        try:
+            # Retrieve relevant chunks using RAG (increased from 5 to 10 for more context)
+            relevant_chunks = self._retrieve_relevant_chunks(question, top_k=10)
+            
+            if not relevant_chunks:
+                self.output_text.insert(tk.END, f"Q: {question}\n\n")
+                self.output_text.insert(tk.END, "A: No relevant information found in documents.\n\n")
+                self.info_var.set("✓ Ready")
+                return
+            
+            # Build context from retrieved chunks
+            context = "\n\n---\n\n".join([
+                f"[From: {doc}]\n{chunk}" for chunk, doc in relevant_chunks
+            ])
+            
+            # Build system prompt with retrieved context
+            system_prompt = f"""You are an expert analyst providing detailed, well-researched answers based ONLY on the provided documents.
 
 DOCUMENT EXCERPTS:
 {context}
@@ -375,10 +380,13 @@ CRITICAL INSTRUCTIONS:
 12. End with a brief summary if the answer is lengthy
 
 ANSWER QUALITY REQUIREMENT: Provide 3-5 substantial paragraphs for most questions, more if needed."""
-        
-        try:
+            
             # Call Ollama with RAG context
             full_prompt = f"{system_prompt}\n\nUser Question: {question}"
+            
+            # Update status to show we're waiting for LLM
+            self.info_var.set("⌛ Waiting for Ollama LLM to generate response...")
+            self.root.update()
             
             # Call the Ollama API
             response = requests.post(
@@ -407,11 +415,19 @@ ANSWER QUALITY REQUIREMENT: Provide 3-5 substantial paragraphs for most question
             self.output_text.insert(tk.END, "=" * 80 + "\n\n")
             self.output_text.see(tk.END)
             self.question_entry.delete(0, tk.END)
-            self.info_var.set("Ready")
+            self.info_var.set("✓ Ready - Answer generated successfully")
         
+        except requests.exceptions.Timeout:
+            self.output_text.insert(tk.END, f"Error: Ollama response timeout. Try a smaller model or check system resources.\n\n")
+            self.info_var.set("❌ Error - Response timeout")
         except Exception as e:
             self.output_text.insert(tk.END, f"API Error: {e}\n\n")
-            self.info_var.set("API Error")
+            self.info_var.set(f"❌ Error - {str(e)[:50]}")
+        
+        finally:
+            # Re-enable button and input field
+            self.ask_button.config(state='normal')
+            self.question_entry.config(state='normal')
     
     def _clear_output(self):
         """Clear the output text area."""
