@@ -1,13 +1,13 @@
 """DocumentQA
 
 Interactive Q&A system that loads documents from a folder and answers questions
-about them using Claude Haiku 4.5.
+about them using Google Gemini 2.5 Flash.
 
 Usage: python DocumentQA.py [folder_path]
   If folder_path is not provided, defaults to "./documents"
 
-Requires: anthropic, PyPDF2, python-docx
-Install: pip install anthropic PyPDF2 python-docx
+Requires: google-generativeai, PyPDF2, python-docx
+Install: pip install google-generativeai PyPDF2 python-docx
 
 """
 
@@ -17,7 +17,7 @@ from pathlib import Path
 import json
 
 try:
-    import anthropic
+    import google.generativeai as genai
     from PyPDF2 import PdfReader
     from docx import Document as DocxDocument
 except ImportError as e:
@@ -136,7 +136,8 @@ def interactive_qa_loop(documents):
         print("No documents loaded. Exiting.")
         return
     
-    client = anthropic.Anthropic()  # Uses ANTHROPIC_API_KEY from environment
+    genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
+    client = genai.GenerativeModel('gemini-2.5-flash')
     system_prompt = build_system_prompt(documents)
     
     print("=" * 60)
@@ -159,23 +160,15 @@ def interactive_qa_loop(documents):
         print("\nThinking...", end=" ", flush=True)
         
         try:
-            message = client.messages.create(
-                model="claude-3-5-haiku-20241022",
-                max_tokens=1024,
-                system=system_prompt,
-                messages=[
-                    {"role": "user", "content": user_question}
-                ]
-            )
+            full_prompt = f"{system_prompt}\n\nUser Question: {user_question}"
+            response = client.generate_content(full_prompt)
+            answer = response.text
             
-            response = message.content[0].text
             print("\n")
-            print(f"Answer:\n{response}\n")
+            print(f"Answer:\n{answer}\n")
         
-        except anthropic.APIError as e:
-            print(f"\nAPI Error: {e}\n")
         except Exception as e:
-            print(f"\nError: {e}\n")
+            print(f"\nAPI Error: {e}\n")
 
 
 def main():

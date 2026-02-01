@@ -1,19 +1,19 @@
 """DocumentQA GUI with RAG
 
 Interactive GUI-based Q&A system that loads documents from a folder and answers questions
-using Claude with RAG (Retrieval-Augmented Generation) for smarter searching.
+using Google Gemini with RAG (Retrieval-Augmented Generation) for smarter searching.
 
 Features:
 - GUI folder browser for document selection
 - Recursive document loading (PDF, DOCX, TXT)
 - Semantic search using embeddings
-- RAG-based answers using Claude Haiku
+- RAG-based answers using Google Gemini 2.5
 - Conversation history
 
 Usage: python DocumentQA_GUI.py
 
-Requires: anthropic, PyPDF2, python-docx, scikit-learn
-Install: pip install anthropic PyPDF2 python-docx scikit-learn
+Requires: google-generativeai, PyPDF2, python-docx, scikit-learn
+Install: pip install google-generativeai PyPDF2 python-docx scikit-learn
 """
 
 import os
@@ -26,7 +26,7 @@ import threading
 try:
     import tkinter as tk
     from tkinter import ttk, filedialog, scrolledtext, messagebox
-    import anthropic
+    import google.generativeai as genai
     from PyPDF2 import PdfReader
     from docx import Document as DocxDocument
     from sklearn.feature_extraction.text import TfidfVectorizer
@@ -35,7 +35,7 @@ try:
 except ImportError as e:
     print(f"Import error: {e}")
     print("Please install required packages:")
-    print("  pip install anthropic PyPDF2 python-docx scikit-learn")
+    print("  pip install google-generativeai PyPDF2 python-docx scikit-learn")
     sys.exit(1)
 
 
@@ -58,19 +58,20 @@ class DocumentQAGUI:
         self._check_api_key()
     
     def _check_api_key(self):
-        """Check if ANTHROPIC_API_KEY is set."""
-        if not os.getenv('ANTHROPIC_API_KEY'):
+        """Check if GOOGLE_API_KEY is set."""
+        if not os.getenv('GOOGLE_API_KEY'):
             messagebox.showwarning(
                 "API Key Missing",
-                "ANTHROPIC_API_KEY not set.\n\n"
+                "GOOGLE_API_KEY not set.\n\n"
                 "Please set the environment variable:\n"
-                "  $env:ANTHROPIC_API_KEY = 'sk-ant-...'"
+                "  $env:GOOGLE_API_KEY = 'your-gemini-api-key'"
             )
         else:
             try:
-                self.client = anthropic.Anthropic()
+                genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
+                self.client = genai.GenerativeModel('gemini-2.5-flash')
             except Exception as e:
-                messagebox.showerror("API Error", f"Failed to initialize Anthropic client: {e}")
+                messagebox.showerror("API Error", f"Failed to initialize Gemini client: {e}")
     
     def _setup_ui(self):
         """Setup the GUI layout."""
@@ -174,7 +175,15 @@ class DocumentQAGUI:
         chunk_count = len(self.all_chunks)
         self.status_var.set(f"✓ Loaded {doc_count} document(s), {chunk_count} chunk(s)")
         self.info_var.set(f"Ready. {doc_count} documents indexed with RAG.")
+        
+        # Display loaded document names
         self.output_text.insert(tk.END, f"Loaded {doc_count} documents with {chunk_count} searchable chunks.\n\n")
+        if doc_count > 0:
+            self.output_text.insert(tk.END, "Documents loaded:\n")
+            for idx, doc_path in enumerate(sorted(self.documents.keys()), 1):
+                doc_name = Path(doc_path).name
+                self.output_text.insert(tk.END, f"  {idx}. {doc_name}\n")
+            self.output_text.insert(tk.END, "\n")
     
     def _extract_text_from_pdf(self, file_path):
         """Extract text from PDF."""
@@ -318,17 +327,10 @@ Please answer the user's question based on the provided context. If the informat
 say so explicitly. Be concise and accurate. Cite which document(s) you're referencing."""
         
         try:
-            # Call Claude Haiku with RAG context
-            message = self.client.messages.create(
-                model="claude-3-5-haiku-20241022",
-                max_tokens=1024,
-                system=system_prompt,
-                messages=[
-                    {"role": "user", "content": question}
-                ]
-            )
-            
-            answer = message.content[0].text
+            # Call Gemini with RAG context
+            full_prompt = f"{system_prompt}\n\nUser Question: {question}"
+            response = self.client.generate_content(full_prompt)
+            answer = response.text
             
             # Display in UI
             self.output_text.insert(tk.END, f"Q: {question}\n\n")
@@ -343,12 +345,9 @@ say so explicitly. Be concise and accurate. Cite which document(s) you're refere
             self.question_entry.delete(0, tk.END)
             self.info_var.set("Ready")
         
-        except anthropic.APIError as e:
+        except Exception as e:
             self.output_text.insert(tk.END, f"API Error: {e}\n\n")
             self.info_var.set("API Error")
-        except Exception as e:
-            self.output_text.insert(tk.END, f"Error: {e}\n\n")
-            self.info_var.set("Error")
     
     def _clear_output(self):
         """Clear the output text area."""
