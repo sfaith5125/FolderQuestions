@@ -227,8 +227,8 @@ class DocumentQAGUI:
         self.all_chunks = []
         self.chunk_to_doc = {}
         
-        chunk_size = 500  # characters per chunk
-        overlap = 50  # character overlap between chunks
+        chunk_size = 1000  # Increased from 500 to capture more context per chunk
+        overlap = 200  # Increased from 50 for better continuity between chunks
         
         for doc_name, doc_text in self.documents.items():
             doc_short_name = Path(doc_name).name
@@ -246,15 +246,23 @@ class DocumentQAGUI:
                 self.all_chunks.append(chunk)
                 self.chunk_to_doc[chunk_idx] = doc_short_name
         
-        # Build TF-IDF vectorizer
+        # Build TF-IDF vectorizer with optimized settings
         if self.all_chunks:
             try:
-                self.vectorizer = TfidfVectorizer(max_features=500, stop_words='english')
+                # ngram_range=(1,2) captures both single words and phrases
+                # min_df=1 includes all terms, sublinear_tf helps with term frequency scaling
+                self.vectorizer = TfidfVectorizer(
+                    max_features=1000,  # Increased from 500 to capture more vocabulary
+                    stop_words='english',
+                    ngram_range=(1, 2),  # Include bigrams for better phrase matching
+                    min_df=1,
+                    sublinear_tf=True
+                )
                 self.tfidf_matrix = self.vectorizer.fit_transform(self.all_chunks)
             except Exception as e:
                 print(f"Error building TF-IDF index: {e}")
     
-    def _retrieve_relevant_chunks(self, query: str, top_k: int = 5) -> List[Tuple[str, str]]:
+    def _retrieve_relevant_chunks(self, query: str, top_k: int = 10) -> List[Tuple[str, str]]:
         """
         Retrieve the most relevant chunks for a query using TF-IDF similarity.
         Returns: [(chunk_text, source_doc_name), ...]
@@ -266,12 +274,13 @@ class DocumentQAGUI:
             query_vec = self.vectorizer.transform([query])
             similarities = cosine_similarity(query_vec, self.tfidf_matrix)[0]
             
-            # Get top-k indices
+            # Get top-k indices, sorted by similarity
             top_indices = np.argsort(similarities)[::-1][:top_k]
             
             results = []
+            min_similarity = 0.01  # Only include chunks with meaningful similarity
             for idx in top_indices:
-                if similarities[idx] > 0.0:
+                if similarities[idx] > min_similarity:
                     chunk = self.all_chunks[idx]
                     doc_name = self.chunk_to_doc.get(idx, "Unknown")
                     results.append((chunk, doc_name))
@@ -304,8 +313,8 @@ class DocumentQAGUI:
         self.info_var.set("Searching and thinking...")
         self.root.update()
         
-        # Retrieve relevant chunks using RAG
-        relevant_chunks = self._retrieve_relevant_chunks(question, top_k=5)
+        # Retrieve relevant chunks using RAG (increased from 5 to 10 for more context)
+        relevant_chunks = self._retrieve_relevant_chunks(question, top_k=10)
         
         if not relevant_chunks:
             self.output_text.insert(tk.END, f"Q: {question}\n\n")
@@ -319,12 +328,26 @@ class DocumentQAGUI:
         ])
         
         # Build system prompt with retrieved context
-        system_prompt = f"""You are a helpful assistant that answers questions based on the following document excerpts:
+        system_prompt = f"""You are an expert analyst providing detailed, well-researched answers based ONLY on the provided documents.
 
+DOCUMENT EXCERPTS:
 {context}
 
-Please answer the user's question based on the provided context. If the information is not in the provided excerpts, 
-say so explicitly. Be concise and accurate. Cite which document(s) you're referencing."""
+CRITICAL INSTRUCTIONS:
+1. Answer must be comprehensive and detailed - provide full explanations, not brief summaries
+2. Quote or paraphrase specific evidence directly from the documents
+3. For each major point, identify which source document(s) support it - use format: "(from [Document Name])"
+4. Structure complex answers with clear headers, bullet points, or numbered lists
+5. Include specific facts: numbers, dates, names, metrics, percentages from the documents
+6. Explain the relationship between different concepts mentioned in the documents
+7. Address ALL parts of the question thoroughly - do not skip any aspect
+8. If the question asks for analysis, synthesis, or comparison, provide that explicitly
+9. If information needed to answer is NOT in the documents, clearly state "This information is not in the provided documents"
+10. NEVER invent, assume, or infer information beyond what is explicitly in the documents
+11. When information is ambiguous, acknowledge the ambiguity and provide your best interpretation based on context
+12. End with a brief summary if the answer is lengthy
+
+ANSWER QUALITY REQUIREMENT: Provide 3-5 substantial paragraphs for most questions, more if needed."""
         
         try:
             # Call Gemini with RAG context
@@ -341,7 +364,6 @@ say so explicitly. Be concise and accurate. Cite which document(s) you're refere
             self.output_text.insert(tk.END, "\nA: " + answer + "\n\n")
             self.output_text.insert(tk.END, "=" * 80 + "\n\n")
             self.output_text.see(tk.END)
-            
             self.question_entry.delete(0, tk.END)
             self.info_var.set("Ready")
         

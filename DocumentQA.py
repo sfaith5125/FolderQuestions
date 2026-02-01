@@ -108,22 +108,36 @@ def load_documents_from_folder(folder_path):
 def build_system_prompt(documents):
     """
     Build a system prompt that includes all document text.
-    This provides context to Claude for answering questions.
+    This provides context to Gemini for answering questions.
     """
     if not documents:
         return "You are a helpful assistant."
     
     doc_content = "\n\n---\n\n".join([
-        f"Document: {path}\n\n{text[:3000]}"  # limit text per doc to avoid token overload
+        f"Document: {path}\n\n{text[:5000]}"  # Increased from 3000 to provide more context
         for path, text in documents.items()
     ])
     
-    system_prompt = f"""You are a helpful assistant that answers questions about the following documents:
+    system_prompt = f"""You are an expert analyst providing detailed, well-researched answers based ONLY on the provided documents.
 
+DOCUMENTS:
 {doc_content}
 
-Please answer questions based on the provided document content. If information is not in the documents, 
-say so explicitly. Be concise and accurate."""
+CRITICAL INSTRUCTIONS:
+1. Answer must be comprehensive and detailed - provide full explanations, not brief summaries
+2. Quote or paraphrase specific evidence directly from the documents
+3. For each major point, identify which source document(s) support it
+4. Structure complex answers with clear headers, bullet points, or numbered lists
+5. Include specific facts: numbers, dates, names, metrics, percentages from the documents
+6. Explain the relationship between different concepts mentioned in the documents
+7. Address ALL parts of the question thoroughly - do not skip any aspect
+8. If the question asks for analysis, synthesis, or comparison, provide that explicitly
+9. If information needed to answer is NOT in the documents, clearly state "This information is not in the provided documents"
+10. NEVER invent, assume, or infer information beyond what is explicitly in the documents
+11. When information is ambiguous, acknowledge the ambiguity and provide your best interpretation based on context
+12. End with a brief summary if the answer is lengthy
+
+ANSWER QUALITY REQUIREMENT: Provide 3-5 substantial paragraphs for most questions, more if needed."""
     
     return system_prompt
 
