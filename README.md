@@ -1,33 +1,257 @@
-# FolderQuestions - Interactive Document Q&A with Claude Haiku
+# FolderQuestions - Interactive Document Q&A with LLMs
 
-An interactive Python app that lets you drop documents into a folder and ask questions about them using Claude Haiku with RAG (Retrieval-Augmented Generation).
+An interactive Python app that lets you drop documents into a folder and ask questions about them using either Google Gemini (cloud) or local Ollama models with RAG (Retrieval-Augmented Generation).
 
-## Two Versions Available
+## 🌳 Branch Structure
 
-- **DocumentQA_GUI.py** (Recommended) - GUI version with folder browser, interactive Q&A, and RAG-based semantic search
-- **DocumentQA.py** - CLI version for command-line use
+This project has **two separate branches** for different deployment approaches:
 
-## Features
+### 1. **feature/google-gemini-api** - Cloud-Based (Fast, Easy Setup)
+- Uses **Google Gemini 2.5 Flash** API
+- ✅ Fast responses (2-5 seconds)
+- ✅ Excellent answer quality
+- ✅ No local resources needed
+- ⚠️ Data sent to Google's servers
+- 💰 Free tier (15 requests/min) or paid plan
+
+**Use this if:**
+- Your documents are non-sensitive
+- You want fast, high-quality answers
+- You don't mind cloud processing
+- Easy setup is priority
+
+### 2. **feature/ollama-local-llm** - Local LLM (Private, No Costs)
+- Uses **Local Ollama** with models like Mistral, Llama2, Neural-Chat
+- ✅ 100% data privacy (stays on your computer)
+- ✅ No API costs
+- ✅ Works offline
+- ❌ Slower responses (15-60 seconds)
+- 📦 Requires Ollama installation + 6GB+ RAM
+
+**Use this if:**
+- Your documents are sensitive/proprietary
+- You need complete data privacy
+- You want zero cloud processing
+- Cost is a concern
+- You have compliance requirements (HIPAA, GDPR, etc.)
+
+## Features (Both Versions)
 
 - **Multi-format support**: PDF, DOCX, and TXT files
 - **Recursive folder scanning**: Automatically loads all documents from a folder and subfolders
 - **RAG (Retrieval-Augmented Generation)**: Semantic search using TF-IDF to find relevant document chunks
 - **Smart Context Retrieval**: Shows which documents were used to answer your question
 - **Interactive Q&A**: Ask natural language questions and get answers based on document content
-- **Claude Haiku 4.5**: Uses Anthropic's fast and efficient Claude Haiku model
+- **Document Listing**: See all loaded documents with their sources
 - **GUI Interface**: Browse folders, ask questions, view retrieved context
-- **Threading**: Non-blocking UI - document loading and queries run in background threads
+- **CLI Interface**: Command-line version for scripting/batch processing
+- **Threading**: Non-blocking UI - operations run in background threads
+- **Advanced RAG Tuning**: Configurable chunk size, overlap, and retrieval parameters
 
-## Requirements
+## Two Versions Available
 
-- Python 3.8+
-- Anthropic API key (get one at https://console.anthropic.com)
+- **DocumentQA_GUI.py** (Recommended) - GUI version with folder browser, interactive Q&A, and RAG-based semantic search
+- **DocumentQA.py** - CLI version for command-line use
 
-## Installation
+## Installation Instructions
 
-1. Install dependencies:
+### For Google Gemini (feature/google-gemini-api)
+
+1. Checkout the branch:
 ```bash
-pip install anthropic PyPDF2 python-docx scikit-learn numpy
+git checkout feature/google-gemini-api
+```
+
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+3. Get a Google Gemini API key:
+   - Visit https://aistudio.google.com/app/apikey
+   - Click "Create API Key"
+   - Copy your key
+
+4. Set environment variable:
+```powershell
+# PowerShell (Windows)
+$env:GOOGLE_API_KEY = 'your-api-key-here'
+
+# Or permanently in Windows:
+# Settings → System → Environment Variables → New User Variable
+# Name: GOOGLE_API_KEY
+# Value: your-api-key-here
+```
+
+5. Run the application:
+```bash
+python DocumentQA_GUI.py
+```
+
+**See `GEMINI_SETUP.md` for detailed Google Gemini setup**
+
+### For Local Ollama (feature/ollama-local-llm)
+
+1. Checkout the branch:
+```bash
+git checkout feature/ollama-local-llm
+```
+
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+3. Install Ollama:
+   - Download from https://ollama.ai
+   - Run installer and complete setup
+
+4. Pull a model:
+```bash
+ollama pull mistral
+# Or try: neural-chat, llama2, dolphin-mixtral
+```
+
+5. Start Ollama (in one terminal):
+```bash
+ollama serve
+```
+
+6. Run DocumentQA (in another terminal):
+```bash
+python DocumentQA_GUI.py
+```
+
+**See `OLLAMA_SETUP.md` for detailed Ollama setup and troubleshooting**
+
+## Quick Start
+
+### Google Gemini Version
+```bash
+git checkout feature/google-gemini-api
+pip install -r requirements.txt
+# Set GOOGLE_API_KEY environment variable
+python DocumentQA_GUI.py
+```
+
+### Ollama Version
+```bash
+git checkout feature/ollama-local-llm
+pip install -r requirements.txt
+ollama pull mistral
+# (in new terminal) ollama serve
+# (back to original terminal)
+python DocumentQA_GUI.py
+```
+
+## Documentation
+
+- **`GEMINI_SETUP.md`** - Complete setup guide for Google Gemini API
+- **`OLLAMA_SETUP.md`** - Complete setup guide for local Ollama models
+- **`ANSWER_QUALITY_TUNING.md`** - How to improve answer quality and performance
+- **`DATA_PRIVACY_GUIDE.md`** - Data privacy analysis and considerations
+
+## API Endpoints
+
+### Google Gemini (feature/google-gemini-api)
+- Requires: `google-generativeai` package
+- Uses: Google's hosted API
+- Cost: Free tier (15 req/min) or paid plan
+- Data: Sent to Google servers
+
+### Ollama (feature/ollama-local-llm)
+- Requires: `requests` package + local Ollama installation
+- Uses: `http://localhost:11434/api/generate`
+- Cost: None (local processing)
+- Data: Stays on your computer
+
+## Comparison Table
+
+| Feature | Gemini | Ollama |
+|---------|--------|--------|
+| **Speed** | ⚡⚡⚡ 2-5s | ⚡ 15-60s |
+| **Quality** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
+| **Privacy** | Cloud | Local |
+| **Cost** | Free/Paid | Free |
+| **Setup** | API key | Install Ollama |
+| **Offline** | ❌ | ✅ |
+| **RAM Needed** | Minimal | 6GB+ |
+| **Compliance** | Standard | HIPAA-safe |
+
+## Hardware Requirements
+
+### Google Gemini Version
+- **Minimum**: 2GB RAM, internet connection
+- **Recommended**: 4GB RAM, good internet
+- Works on: Windows, Mac, Linux
+
+### Ollama Version
+- **Minimum**: 6GB RAM, local storage
+- **Recommended**: 16GB RAM, GPU (NVIDIA/AMD)
+- **Models**:
+  - Mistral (7B): 5GB RAM
+  - Neural-Chat (7B): 5GB RAM
+  - Dolphin-Mixtral (46B): 28GB RAM
+- Works on: Windows, Mac, Linux
+
+## Troubleshooting
+
+### Gemini Version
+- See `GEMINI_SETUP.md` troubleshooting section
+- API key not set error: Check environment variable
+- 404 model error: Model not available on your account tier
+
+### Ollama Version
+- See `OLLAMA_SETUP.md` troubleshooting section
+- Connection refused: Make sure `ollama serve` is running
+- Out of memory: Use smaller model (neural-chat instead of dolphin-mixtral)
+- Slow responses: Increase timeout or use GPU acceleration
+
+## Main Branch (main)
+
+The `main` branch contains the latest Google Gemini version with all improvements. Both feature branches are kept up-to-date with any enhancements to core RAG functionality.
+
+## Switching Between Versions
+
+```bash
+# See both branches
+git branch -a
+
+# Switch to Google Gemini
+git checkout feature/google-gemini-api
+
+# Switch to Ollama
+git checkout feature/ollama-local-llm
+
+# Switch back to main
+git checkout main
+```
+
+## Performance Tips
+
+### For Google Gemini
+1. Increase retrieved chunks in code (currently 10)
+2. Use larger context in system prompt
+3. Ask specific questions for better answers
+
+### For Ollama
+1. Use smaller models for faster responses (neural-chat, openchat)
+2. Use larger models for better quality (dolphin-mixtral)
+3. Ensure GPU acceleration is enabled
+4. Close other applications to free RAM
+5. Reduce document size/complexity
+
+## License
+
+MIT
+
+## Contributing
+
+Feel free to fork and submit pull requests for improvements!
+
+---
+
+**Choose your version and enjoy private, powerful document Q&A! 🚀**
 ```
 
 Or use the provided requirements file:
