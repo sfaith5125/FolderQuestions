@@ -145,45 +145,85 @@ python DocumentQA.py ./documents
 
 ## Performance Tips
 
-### For Faster Responses
+### For Faster Responses (RECOMMENDED)
 
-1. **Use a smaller model**
+**The application has been optimized for speed with the following defaults:**
+
+1. **Reduced context size**
+   - Now retrieves top 5 relevant chunks (was 10)
+   - Faster document search and processing
+   - Still provides sufficient context for quality answers
+
+2. **Optimized generation parameters**
+   - `temperature=0.3` (was 0.7) - Faster, more predictable responses
+   - `top_p=0.9` - Narrows token probability distribution
+   - `top_k=40` - Reduces computational options
+   - `num_predict=500` - Limits output to ~500 tokens (prevents long-winded responses)
+
+3. **Shorter, focused system prompt**
+   - Removed verbose instructions
+   - Faster for LLM to process
+   - Still produces quality answers
+
+### Additional Speed Optimizations
+
+1. **Use a smaller/faster model**
    ```powershell
-   ollama pull neural-chat
-   # Or
-   ollama pull openchat
+   # Current fastest models:
+   ollama pull mistral           # 7B - Good balance (RECOMMENDED)
+   ollama pull openchat          # 7B - Very fast
+   ollama pull neural-chat       # 7B - Fast and conversational
+   
+   # Avoid these for speed:
+   ollama rm dolphin-mixtral     # Too slow (46B parameters)
    ```
 
 2. **Use GPU acceleration** (if you have NVIDIA/AMD GPU)
    - Ollama automatically uses GPU if available
-   - Check if it's working: `ollama --version`
-   - For manual GPU config, see Ollama docs
+   - Check with: `ollama --version`
+   - GPU can give 5-10x speed improvement
 
 3. **Close other applications**
    - Free up RAM for Ollama
-   - 8GB+ recommended
+   - 8GB+ RAM recommended
+   - Check Task Manager for memory usage
 
-4. **Use shorter documents**
-   - Load smaller document sets
-   - Ask more specific questions
+4. **Ask specific questions**
+   - More specific questions = faster, better answers
+   - Avoid open-ended questions that require long explanations
+
+### If Responses Are Still Slow
+
+**Option 1: Reduce output length further**
+- Edit `DocumentQA_GUI.py` line ~385
+- Change `"num_predict": 500` to `"num_predict": 250`
+- This limits answers to ~250 tokens
+
+**Option 2: Reduce context even more**
+- Edit `DocumentQA_GUI.py` line ~355
+- Change `top_chunks = relevant_chunks[:5]` to `[:3]`
+- Uses only top 3 document chunks
+
+**Option 3: Use a faster model**
+- Switch to `openchat` or `neural-chat`
+- Both very fast on modest hardware
 
 ### For Better Answers
 
-1. **Use a larger model**
+1. **Use a larger model** (accepts slower responses)
    ```powershell
-   ollama pull dolphin-mixtral
-   # Or
-   ollama pull neural-chat
+   ollama pull dolphin-mixtral   # Best quality, slower
+   ollama pull mistral           # Good balance
    ```
 
-2. **Provide more context**
+2. **Adjust parameters for quality**
+   - Edit `DocumentQA_GUI.py` to change:
+   - `temperature` to 0.5 (more creative, still reasonable)
+   - `num_predict` to 1000 (longer, more detailed answers)
+
+3. **Provide more context**
    - Load all relevant documents
    - Ask specific multi-part questions
-
-3. **Adjust temperature in code**
-   - Lower (0.3): More focused, deterministic answers
-   - Higher (0.9): More creative, varied answers
-   - Default (0.7): Good balance
 
 ## Troubleshooting
 
@@ -211,13 +251,15 @@ ollama pull mistral
 ollama list
 ```
 
-### Issue: Slow responses (taking 30+ seconds)
+### Issue: Slow responses (taking 30+ seconds) or timeouts
 
 **Causes & Solutions:**
 
 1. **Using large model on weak computer**
    ```powershell
-   ollama pull neural-chat  # Smaller, faster
+   ollama pull mistral           # 7B model, good speed
+   ollama pull openchat          # 7B, very fast
+````
    ```
 
 2. **No GPU acceleration**

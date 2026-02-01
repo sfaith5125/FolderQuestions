@@ -345,8 +345,8 @@ class DocumentQAGUI:
         self.root.update()
         
         try:
-            # Retrieve relevant chunks using RAG (increased from 5 to 10 for more context)
-            relevant_chunks = self._retrieve_relevant_chunks(question, top_k=10)
+            # Retrieve relevant chunks using RAG (reduced to 5 for faster processing)
+            relevant_chunks = self._retrieve_relevant_chunks(question, top_k=5)
             
             if not relevant_chunks:
                 self.output_text.insert(tk.END, f"Q: {question}\n\n")
@@ -354,48 +354,43 @@ class DocumentQAGUI:
                 self.info_var.set("✓ Ready")
                 return
             
-            # Build context from retrieved chunks
+            # Build context from retrieved chunks (limit to top 5 for faster processing)
+            top_chunks = relevant_chunks[:5]
             context = "\n\n---\n\n".join([
-                f"[From: {doc}]\n{chunk}" for chunk, doc in relevant_chunks
+                f"[From: {doc}]\n{chunk}" for chunk, doc in top_chunks
             ])
             
-            # Build system prompt with retrieved context
-            system_prompt = f"""You are an expert analyst providing detailed, well-researched answers based ONLY on the provided documents.
+            # Build system prompt with retrieved context - optimized for faster responses
+            system_prompt = f"""Answer based ONLY on the provided documents. Be concise but informative.
 
 DOCUMENT EXCERPTS:
 {context}
 
-CRITICAL INSTRUCTIONS:
-1. Answer must be comprehensive and detailed - provide full explanations, not brief summaries
-2. Quote or paraphrase specific evidence directly from the documents
-3. For each major point, identify which source document(s) support it - use format: "(from [Document Name])"
-4. Structure complex answers with clear headers, bullet points, or numbered lists
-5. Include specific facts: numbers, dates, names, metrics, percentages from the documents
-6. Explain the relationship between different concepts mentioned in the documents
-7. Address ALL parts of the question thoroughly - do not skip any aspect
-8. If the question asks for analysis, synthesis, or comparison, provide that explicitly
-9. If information needed to answer is NOT in the documents, clearly state "This information is not in the provided documents"
-10. NEVER invent, assume, or infer information beyond what is explicitly in the documents
-11. When information is ambiguous, acknowledge the ambiguity and provide your best interpretation based on context
-12. End with a brief summary if the answer is lengthy
-
-ANSWER QUALITY REQUIREMENT: Provide 3-5 substantial paragraphs for most questions, more if needed."""
+Instructions:
+- Answer directly without lengthy preambles
+- Include source document names in parentheses: (from DocumentName)
+- Use bullet points for lists
+- If information is not in documents, state "Not in provided documents"
+- Keep answer focused and clear"""
             
             # Call Ollama with RAG context
-            full_prompt = f"{system_prompt}\n\nUser Question: {question}"
+            full_prompt = f"{system_prompt}\n\nQuestion: {question}"
             
             # Update status to show we're waiting for LLM
             self.info_var.set("⌛ Waiting for Ollama LLM to generate response...")
             self.root.update()
             
-            # Call the Ollama API
+            # Call the Ollama API with optimized parameters for faster responses
             response = requests.post(
                 f"{self.ollama_url}/api/generate",
                 json={
                     "model": self.ollama_model,
                     "prompt": full_prompt,
                     "stream": False,
-                    "temperature": 0.7,
+                    "temperature": 0.3,  # Lower temp = faster, more predictable responses
+                    "top_p": 0.9,  # Narrow probability distribution for speed
+                    "top_k": 40,   # Reduce token options considered
+                    "num_predict": 500,  # Limit output length to ~500 tokens (speeds up generation)
                 },
                 timeout=120  # Give Ollama up to 2 minutes to respond
             )
