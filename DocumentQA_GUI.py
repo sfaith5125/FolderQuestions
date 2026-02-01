@@ -74,8 +74,14 @@ class DocumentQAGUI:
             if response.status_code == 200:
                 models = response.json().get('models', [])
                 if models:
-                    # Use the first available model, or default to mistral
-                    self.ollama_model = models[0]['name'] if models else 'mistral'
+                    # Prefer openchat, then mistral, then use first available
+                    model_names = [m['name'] for m in models]
+                    if 'openchat' in model_names:
+                        self.ollama_model = 'openchat'
+                    elif 'mistral' in model_names:
+                        self.ollama_model = 'mistral'
+                    else:
+                        self.ollama_model = model_names[0]
                     self.client = True  # Client is "initialized" (Ollama is running)
                     self.status_var.set(f"✓ Ollama connected - Using model: {self.ollama_model}")
                     return

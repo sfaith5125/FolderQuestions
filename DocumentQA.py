@@ -164,10 +164,17 @@ def interactive_qa_loop(documents, ollama_url="http://localhost:11434"):
         models = response.json().get('models', [])
         if not models:
             print("Error: No models found in Ollama.")
-            print("Please pull a model first: ollama pull mistral")
+            print("Please pull a model first: ollama pull openchat")
             return
         
-        ollama_model = models[0]['name']
+        # Prefer openchat, then mistral, then use first available
+        model_names = [m['name'] for m in models]
+        if 'openchat' in model_names:
+            ollama_model = 'openchat'
+        elif 'mistral' in model_names:
+            ollama_model = 'mistral'
+        else:
+            ollama_model = model_names[0]
         print(f"Using model: {ollama_model}")
     except requests.exceptions.ConnectionError:
         print("Error: Could not connect to Ollama at " + ollama_url)
