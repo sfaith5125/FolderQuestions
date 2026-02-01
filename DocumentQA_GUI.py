@@ -1,19 +1,25 @@
-"""DocumentQA GUI with RAG
+"""DocumentQA GUI with RAG - Local Ollama Version
 
 Interactive GUI-based Q&A system that loads documents from a folder and answers questions
-using Google Gemini with RAG (Retrieval-Augmented Generation) for smarter searching.
+using local LLM models via Ollama with RAG (Retrieval-Augmented Generation).
 
 Features:
 - GUI folder browser for document selection
 - Recursive document loading (PDF, DOCX, TXT)
 - Semantic search using embeddings
-- RAG-based answers using Google Gemini 2.5
+- RAG-based answers using local Ollama models
+- 100% private - data never leaves your computer
 - Conversation history
 
 Usage: python DocumentQA_GUI.py
 
-Requires: google-generativeai, PyPDF2, python-docx, scikit-learn
-Install: pip install google-generativeai PyPDF2 python-docx scikit-learn
+Requirements:
+1. Ollama installed from https://ollama.ai
+2. A model pulled locally: ollama pull mistral (or llama2, neural-chat, etc.)
+3. Ollama running: ollama serve
+
+Requires: requests, PyPDF2, python-docx, scikit-learn
+Install: pip install requests PyPDF2 python-docx scikit-learn
 """
 
 import os
@@ -22,11 +28,12 @@ import json
 from pathlib import Path
 from typing import Dict, List, Tuple
 import threading
+import requests
+import time
 
 try:
     import tkinter as tk
     from tkinter import ttk, filedialog, scrolledtext, messagebox
-    import google.generativeai as genai
     from PyPDF2 import PdfReader
     from docx import Document as DocxDocument
     from sklearn.feature_extraction.text import TfidfVectorizer
@@ -35,14 +42,14 @@ try:
 except ImportError as e:
     print(f"Import error: {e}")
     print("Please install required packages:")
-    print("  pip install google-generativeai PyPDF2 python-docx scikit-learn")
+    print("  pip install requests PyPDF2 python-docx scikit-learn")
     sys.exit(1)
 
 
 class DocumentQAGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("DocumentQA - Interactive Document Q&A")
+        self.root.title("DocumentQA - Interactive Document Q&A (Local Ollama)")
         self.root.geometry("1000x700")
         
         self.documents = {}  # {file_path: text}
@@ -51,6 +58,8 @@ class DocumentQAGUI:
         self.tfidf_matrix = None
         self.all_chunks = []  # flat list of chunks for searching
         self.chunk_to_doc = {}  # {chunk_idx: doc_name}
+        self.ollama_model = None  # Will be set when Ollama is detected
+        self.ollama_url = "http://localhost:11434"  # Ollama local server URL
         
         self.client = None
         
@@ -58,20 +67,38 @@ class DocumentQAGUI:
         self._check_api_key()
     
     def _check_api_key(self):
-        """Check if GOOGLE_API_KEY is set."""
-        if not os.getenv('GOOGLE_API_KEY'):
+        """Check if Ollama is running and accessible."""
+        try:
+            # Test connection to Ollama
+            response = requests.get('http://localhost:11434/api/tags', timeout=2)
+            if response.status_code == 200:
+                models = response.json().get('models', [])
+                if models:
+                    # Use the first available model, or default to mistral
+                    self.ollama_model = models[0]['name'] if models else 'mistral'
+                    self.client = True  # Client is "initialized" (Ollama is running)
+                    self.status_var.set(f"✓ Ollama connected - Using model: {self.ollama_model}")
+                    return
             messagebox.showwarning(
-                "API Key Missing",
-                "GOOGLE_API_KEY not set.\n\n"
-                "Please set the environment variable:\n"
-                "  $env:GOOGLE_API_KEY = 'your-gemini-api-key'"
+                "Ollama Not Ready",
+                "Ollama is running but no models found.\n\n"
+                "Please pull a model first:\n"
+                "  ollama pull mistral\n\n"
+                "Then ensure Ollama is running:\n"
+                "  ollama serve"
             )
-        else:
-            try:
-                genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
-                self.client = genai.GenerativeModel('gemini-2.5-flash')
-            except Exception as e:
-                messagebox.showerror("API Error", f"Failed to initialize Gemini client: {e}")
+        except requests.exceptions.ConnectionError:
+            messagebox.showwarning(
+                "Ollama Not Running",
+                "Could not connect to Ollama.\n\n"
+                "Please start Ollama:\n"
+                "  1. Download from https://ollama.ai\n"
+                "  2. Run: ollama serve\n"
+                "  3. In another terminal: ollama pull mistral\n"
+                "  4. Restart this application"
+            )
+        except Exception as e:
+            messagebox.showerror("Error", f"Error checking Ollama: {e}")
     
     def _setup_ui(self):
         """Setup the GUI layout."""
@@ -350,10 +377,25 @@ CRITICAL INSTRUCTIONS:
 ANSWER QUALITY REQUIREMENT: Provide 3-5 substantial paragraphs for most questions, more if needed."""
         
         try:
-            # Call Gemini with RAG context
+            # Call Ollama with RAG context
             full_prompt = f"{system_prompt}\n\nUser Question: {question}"
-            response = self.client.generate_content(full_prompt)
-            answer = response.text
+            
+            # Call the Ollama API
+            response = requests.post(
+                f"{self.ollama_url}/api/generate",
+                json={
+                    "model": self.ollama_model,
+                    "prompt": full_prompt,
+                    "stream": False,
+                    "temperature": 0.7,
+                },
+                timeout=120  # Give Ollama up to 2 minutes to respond
+            )
+            
+            if response.status_code == 200:
+                answer = response.json().get('response', 'No response received')
+            else:
+                answer = f"Error: Ollama returned status {response.status_code}"
             
             # Display in UI
             self.output_text.insert(tk.END, f"Q: {question}\n\n")

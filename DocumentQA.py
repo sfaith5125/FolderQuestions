@@ -1,13 +1,13 @@
-"""DocumentQA
+"""DocumentQA - Local Ollama Version
 
 Interactive Q&A system that loads documents from a folder and answers questions
-about them using Google Gemini 2.5 Flash.
+about them using local LLM models via Ollama.
 
 Usage: python DocumentQA.py [folder_path]
   If folder_path is not provided, defaults to "./documents"
 
-Requires: google-generativeai, PyPDF2, python-docx
-Install: pip install google-generativeai PyPDF2 python-docx
+Requires: requests, PyPDF2, python-docx, scikit-learn
+Install: pip install requests PyPDF2 python-docx scikit-learn
 
 """
 
@@ -15,15 +15,18 @@ import os
 import sys
 from pathlib import Path
 import json
+import requests
 
 try:
-    import google.generativeai as genai
     from PyPDF2 import PdfReader
     from docx import Document as DocxDocument
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.metrics.pairwise import cosine_similarity
+    import numpy as np
 except ImportError as e:
     print(f"Import error: {e}")
     print("Please install required packages:")
-    print("  pip install anthropic PyPDF2 python-docx")
+    print("  pip install requests PyPDF2 python-docx scikit-learn")
     sys.exit(1)
 
 
@@ -142,16 +145,35 @@ ANSWER QUALITY REQUIREMENT: Provide 3-5 substantial paragraphs for most question
     return system_prompt
 
 
-def interactive_qa_loop(documents):
+def interactive_qa_loop(documents, ollama_url="http://localhost:11434"):
     """
-    Interactive loop where user asks questions and Claude answers.
+    Interactive loop where user asks questions and Ollama answers.
     """
     if not documents:
         print("No documents loaded. Exiting.")
         return
     
-    genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
-    client = genai.GenerativeModel('gemini-2.5-flash')
+    # Check if Ollama is running
+    try:
+        response = requests.get(f'{ollama_url}/api/tags', timeout=2)
+        if response.status_code != 200:
+            print("Error: Could not connect to Ollama.")
+            print("Please ensure Ollama is running: ollama serve")
+            return
+        
+        models = response.json().get('models', [])
+        if not models:
+            print("Error: No models found in Ollama.")
+            print("Please pull a model first: ollama pull mistral")
+            return
+        
+        ollama_model = models[0]['name']
+        print(f"Using model: {ollama_model}")
+    except requests.exceptions.ConnectionError:
+        print("Error: Could not connect to Ollama at " + ollama_url)
+        print("Please start Ollama with: ollama serve")
+        return
+    
     system_prompt = build_system_prompt(documents)
     
     print("=" * 60)
@@ -175,12 +197,30 @@ def interactive_qa_loop(documents):
         
         try:
             full_prompt = f"{system_prompt}\n\nUser Question: {user_question}"
-            response = client.generate_content(full_prompt)
-            answer = response.text
+            
+            # Call the Ollama API
+            response = requests.post(
+                f"{ollama_url}/api/generate",
+                json={
+                    "model": ollama_model,
+                    "prompt": full_prompt,
+                    "stream": False,
+                    "temperature": 0.7,
+                },
+                timeout=120  # Give Ollama up to 2 minutes to respond
+            )
+            
+            if response.status_code == 200:
+                answer = response.json().get('response', 'No response received')
+            else:
+                answer = f"Error: Ollama returned status {response.status_code}"
             
             print("\n")
             print(f"Answer:\n{answer}\n")
         
+        except requests.exceptions.Timeout:
+            print("\nError: Ollama took too long to respond (timeout after 2 minutes)")
+            print("Try with a smaller model like 'neural-chat' instead of 'mistral'\n")
         except Exception as e:
             print(f"\nAPI Error: {e}\n")
 
